@@ -65,22 +65,22 @@ For a first, we'll compare this implementation to others. Take for example two o
 ```csharp
 public static int DigitCountMath(byte b)
 {
-	if (b is 0)
-	{
-		return 1;
-	}
+    if (b is 0)
+    {
+        return 1;
+    }
 
-	if (b is 1)
-	{
-		return 1;
-	}
+    if (b is 1)
+    {
+        return 1;
+    }
 
-	return (int)Math.Ceiling(Math.Log10(b + 1));
+    return (int)Math.Ceiling(Math.Log10(b + 1));
 }
 
 public static int DigitCountToString(byte b)
 {
-	return b.ToString().Length;
+    return b.ToString().Length;
 }
 ```
 
@@ -147,7 +147,7 @@ When going to the `ToString` definition for `byte`, we see this:
 ```csharp
 public override string ToString()
 {
-	return Number.UInt32ToDecStr(m_value);
+    return Number.UInt32ToDecStr(m_value);
 }
 ```
 
@@ -157,19 +157,19 @@ With that out of the way, it's now time to test our technique for 16-bit integer
 ```csharp
 public static int DigitCount(ushort value)
 {
-	if (value >= 10000)
-		return 5;
+    if (value >= 10000)
+        return 5;
 
-	if (value >= 1000)
-		return 4;
+    if (value >= 1000)
+        return 4;
 
-	if (value >= 100)
-		return 3;
+    if (value >= 100)
+        return 3;
 
-	if (value >= 10)
-		return 2;
+    if (value >= 10)
+        return 2;
 
-	return 1;
+    return 1;
 }
 ```
 
@@ -359,32 +359,32 @@ For the above results, at Value = 999 onwards we're starting to see `ToString` t
 ```csharp
 internal static string UInt32ToDecStr(uint value)
 {
-	// For small numbers, consult a lazily-populated cache.
-	if (value < SmallNumberCacheLength)
-	{
-		return UInt32ToDecStrForKnownSmallNumber(value);
-	}
+    // For small numbers, consult a lazily-populated cache.
+    if (value < SmallNumberCacheLength)
+    {
+        return UInt32ToDecStrForKnownSmallNumber(value);
+    }
 
-	return UInt32ToDecStr_NoSmallNumberCheck(value);
+    return UInt32ToDecStr_NoSmallNumberCheck(value);
 }
 
 internal static string UInt32ToDecStrForKnownSmallNumber(uint value)
 {
-	// omitted for brevity
+    // omitted for brevity
 }
 
 private static unsafe string UInt32ToDecStr_NoSmallNumberCheck(uint value)
 {
-	int bufferLength = FormattingHelpers.CountDigits(value);
+    int bufferLength = FormattingHelpers.CountDigits(value);
 
-	string result = string.FastAllocateString(bufferLength);
-	fixed (char* buffer = result)
-	{
-		char* p = buffer + bufferLength;
-		p = UInt32ToDecChars(p, value);
-		Debug.Assert(p == buffer);
-	}
-	return result;
+    string result = string.FastAllocateString(bufferLength);
+    fixed (char* buffer = result)
+    {
+        char* p = buffer + bufferLength;
+        p = UInt32ToDecChars(p, value);
+        Debug.Assert(p == buffer);
+    }
+    return result;
 }
 ```
 
@@ -394,23 +394,23 @@ The implementation does pre-calculate the digit count, so it's definitely fast. 
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 public static int CountDigits(uint value)
 {
-	// Algorithm based on https://lemire.me/blog/2021/06/03/computing-the-number-of-digits-of-an-integer-even-faster.
-	ReadOnlySpan<long> table =
-	[
-		4294967296,
-		8589934582,
-		8589934582,
-		8589934582,
-		12884901788,
-		12884901788,
-		12884901788,
-		// ... omitted values
-	];
-	Debug.Assert(table.Length == 32, "Every result of uint.Log2(value) needs a long entry in the table.");
+    // Algorithm based on https://lemire.me/blog/2021/06/03/computing-the-number-of-digits-of-an-integer-even-faster.
+    ReadOnlySpan<long> table =
+    [
+        4294967296,
+        8589934582,
+        8589934582,
+        8589934582,
+        12884901788,
+        12884901788,
+        12884901788,
+        // ... omitted values
+    ];
+    Debug.Assert(table.Length == 32, "Every result of uint.Log2(value) needs a long entry in the table.");
 
-	// TODO: Replace with table[uint.Log2(value)] once https://github.com/dotnet/runtime/issues/79257 is fixed
-	long tableValue = Unsafe.Add(ref MemoryMarshal.GetReference(table), uint.Log2(value));
-	return (int)((value + tableValue) >> 32);
+    // TODO: Replace with table[uint.Log2(value)] once https://github.com/dotnet/runtime/issues/79257 is fixed
+    long tableValue = Unsafe.Add(ref MemoryMarshal.GetReference(table), uint.Log2(value));
+    return (int)((value + tableValue) >> 32);
 }
 ```
 
@@ -539,40 +539,40 @@ Somewhat surprisingly and somewhat unsurprisingly, our solution is much worse th
 [CLSCompliant(false)]
 public static int Log2(uint value)
 {
-	// The 0->0 contract is fulfilled by setting the LSB to 1.
-	// Log(1) is 0, and setting the LSB for values > 1 does not change the log2 result.
-	value |= 1;
+    // The 0->0 contract is fulfilled by setting the LSB to 1.
+    // Log(1) is 0, and setting the LSB for values > 1 does not change the log2 result.
+    value |= 1;
 
-	// value    lzcnt   actual  expected
-	// ..0001   31      31-31    0
-	// ..0010   30      31-30    1
-	// 0010..    2      31-2    29
-	// 0100..    1      31-1    30
-	// 1000..    0      31-0    31
-	if (Lzcnt.IsSupported)
-	{
-		return 31 ^ (int)Lzcnt.LeadingZeroCount(value);
-	}
+    // value    lzcnt   actual  expected
+    // ..0001   31      31-31    0
+    // ..0010   30      31-30    1
+    // 0010..    2      31-2    29
+    // 0100..    1      31-1    30
+    // 1000..    0      31-0    31
+    if (Lzcnt.IsSupported)
+    {
+        return 31 ^ (int)Lzcnt.LeadingZeroCount(value);
+    }
 
-	if (ArmBase.IsSupported)
-	{
-		return 31 ^ ArmBase.LeadingZeroCount(value);
-	}
+    if (ArmBase.IsSupported)
+    {
+        return 31 ^ ArmBase.LeadingZeroCount(value);
+    }
 
-	if (WasmBase.IsSupported)
-	{
-		return 31 ^ WasmBase.LeadingZeroCount(value);
-	}
+    if (WasmBase.IsSupported)
+    {
+        return 31 ^ WasmBase.LeadingZeroCount(value);
+    }
 
-	// BSR returns the log2 result directly. However BSR is slower than LZCNT
-	// on AMD processors, so we leave it as a fallback only.
-	if (X86Base.IsSupported)
-	{
-		return (int)X86Base.BitScanReverse(value);
-	}
+    // BSR returns the log2 result directly. However BSR is slower than LZCNT
+    // on AMD processors, so we leave it as a fallback only.
+    if (X86Base.IsSupported)
+    {
+        return (int)X86Base.BitScanReverse(value);
+    }
 
-	// Fallback contract is 0->0
-	return Log2SoftwareFallback(value);
+    // Fallback contract is 0->0
+    return Log2SoftwareFallback(value);
 }
 ```
  
@@ -587,24 +587,24 @@ This is the code, tested of course against the baseline implementations for corr
 ```csharp
 public static int DigitCountCompareAll(uint value)
 {
-	uint mask = (UIntBool(value >= 0 && value < 10) << 1)
-		| (UIntBool(value >= 10 && value < 100) << 2)
-		| (UIntBool(value >= 100 && value < 1000) << 3)
-		| (UIntBool(value >= 1000 && value < 10000) << 4)
-		| (UIntBool(value >= 10000 && value < 100000) << 5)
-		| (UIntBool(value >= 100000 && value < 1000000) << 6)
-		| (UIntBool(value >= 1000000 && value < 10000000) << 7)
-		| (UIntBool(value >= 10000000 && value < 100000000) << 8)
-		| (UIntBool(value >= 100000000 && value < 1000000000) << 9)
-		| (UIntBool(value >= 1000000000) << 10)
-		;
-	return (int)uint.Log2(mask);
+    uint mask = (UIntBool(value >= 0 && value < 10) << 1)
+        | (UIntBool(value >= 10 && value < 100) << 2)
+        | (UIntBool(value >= 100 && value < 1000) << 3)
+        | (UIntBool(value >= 1000 && value < 10000) << 4)
+        | (UIntBool(value >= 10000 && value < 100000) << 5)
+        | (UIntBool(value >= 100000 && value < 1000000) << 6)
+        | (UIntBool(value >= 1000000 && value < 10000000) << 7)
+        | (UIntBool(value >= 10000000 && value < 100000000) << 8)
+        | (UIntBool(value >= 100000000 && value < 1000000000) << 9)
+        | (UIntBool(value >= 1000000000) << 10)
+        ;
+    return (int)uint.Log2(mask);
 }
 
 [MethodImpl(MethodImplOptions.AggressiveInlining)]
 private static uint UIntBool(bool x)
 {
-	return x ? 1U : 0U;
+    return x ? 1U : 0U;
 }
 ```
 
@@ -726,18 +726,18 @@ The compare all solution is always too much slower than the STL one. However thi
 ```csharp
 public static int DigitCountCompareAllBitwise(uint value)
 {
-	uint mask = ((UIntBool(value >= 0) & UIntBool(value < 10)) << 1)
-		| ((UIntBool(value >= 10) & UIntBool(value < 100)) << 2)
-		| ((UIntBool(value >= 100) & UIntBool(value < 1000)) << 3)
-		| ((UIntBool(value >= 1000) & UIntBool(value < 10000)) << 4)
-		| ((UIntBool(value >= 10000) & UIntBool(value < 100000)) << 5)
-		| ((UIntBool(value >= 100000) & UIntBool(value < 1000000)) << 6)
-		| ((UIntBool(value >= 1000000) & UIntBool(value < 10000000)) << 7)
-		| ((UIntBool(value >= 10000000) & UIntBool(value < 100000000)) << 8)
-		| ((UIntBool(value >= 100000000) & UIntBool(value < 1000000000)) << 9)
-		| (UIntBool(value >= 1000000000) << 10)
-		;
-	return (int)uint.Log2(mask);
+    uint mask = ((UIntBool(value >= 0) & UIntBool(value < 10)) << 1)
+        | ((UIntBool(value >= 10) & UIntBool(value < 100)) << 2)
+        | ((UIntBool(value >= 100) & UIntBool(value < 1000)) << 3)
+        | ((UIntBool(value >= 1000) & UIntBool(value < 10000)) << 4)
+        | ((UIntBool(value >= 10000) & UIntBool(value < 100000)) << 5)
+        | ((UIntBool(value >= 100000) & UIntBool(value < 1000000)) << 6)
+        | ((UIntBool(value >= 1000000) & UIntBool(value < 10000000)) << 7)
+        | ((UIntBool(value >= 10000000) & UIntBool(value < 100000000)) << 8)
+        | ((UIntBool(value >= 100000000) & UIntBool(value < 1000000000)) << 9)
+        | (UIntBool(value >= 1000000000) << 10)
+        ;
+    return (int)uint.Log2(mask);
 }
 ```
 
@@ -884,7 +884,7 @@ public static int DigitCountCompareAllBitwise(uint value)
 | DigitCountCompareAllBitwise | 999999999  | 6.3036 ns | 0.0413 ns | 0.0345 ns | 6.3011 ns |   133.57 |    49.75 |
 
 It's just slower. The code gen appears "normal":
-```msil
+```asm
 C.DigitCountCompareAllBitwise(UInt32)
     L0000: push ebp
     L0001: mov ebp, esp
@@ -985,42 +985,42 @@ To avoid getting our custom implementation too lengthy, that we will simply chec
 ```csharp
 public static int DigitCount(ulong value)
 {
-	const ulong largeThreshold = 10_000_000_000;
-	
-	if (value >= largeThreshold)
-	{
-		ulong remaining = value / largeThreshold;
-		return DigitCount(remaining) + 10;
-	}
+    const ulong largeThreshold = 10_000_000_000;
+    
+    if (value >= largeThreshold)
+    {
+        ulong remaining = value / largeThreshold;
+        return DigitCount(remaining) + 10;
+    }
 
-	if (value >= 1000000000)
-		return 10;
+    if (value >= 1000000000)
+        return 10;
 
-	if (value >= 100000000)
-		return 9;
+    if (value >= 100000000)
+        return 9;
 
-	if (value >= 10000000)
-		return 8;
+    if (value >= 10000000)
+        return 8;
 
-	if (value >= 1000000)
-		return 7;
+    if (value >= 1000000)
+        return 7;
 
-	if (value >= 100000)
-		return 6;
+    if (value >= 100000)
+        return 6;
 
-	if (value >= 10000)
-		return 5;
+    if (value >= 10000)
+        return 5;
 
-	if (value >= 1000)
-		return 4;
+    if (value >= 1000)
+        return 4;
 
-	if (value >= 100)
-		return 3;
+    if (value >= 100)
+        return 3;
 
-	if (value >= 10)
-		return 2;
+    if (value >= 10)
+        return 2;
 
-	return 1;
+    return 1;
 }
 ```
 
@@ -1201,39 +1201,39 @@ Here is the code that will be used:
 ```csharp
 public static int ILog(double value)
 {
-	const double fastThreshold = 1e9;
-	return value is 0 ? int.MinValue
-		: value >= fastThreshold ? MathILog(value)
-		: value < 1e1 ? 0
-		: value < 1e2 ? 1
-		: value < 1e3 ? 2
-		: value < 1e4 ? 3
-		: value < 1e5 ? 4
-		: value < 1e6 ? 5
-		: value < 1e7 ? 6
-		: value < 1e8 ? 7
-		: 8
-		;
+    const double fastThreshold = 1e9;
+    return value is 0 ? int.MinValue
+        : value >= fastThreshold ? MathILog(value)
+        : value < 1e1 ? 0
+        : value < 1e2 ? 1
+        : value < 1e3 ? 2
+        : value < 1e4 ? 3
+        : value < 1e5 ? 4
+        : value < 1e6 ? 5
+        : value < 1e7 ? 6
+        : value < 1e8 ? 7
+        : 8
+        ;
 }
 
 public static int ILogSwitch(double value)
 {
-	const double fastThreshold = 1e9;
-	return value switch
-	{
-		0 => int.MinValue,
+    const double fastThreshold = 1e9;
+    return value switch
+    {
+        0 => int.MinValue,
         >= fastThreshold => MathILog(value),
 
-		< 1e1 => 0,
-		< 1e2 => 1,
-		< 1e3 => 2,
-		< 1e4 => 3,
-		< 1e5 => 4,
-		< 1e6 => 5,
-		< 1e7 => 6,
-		< 1e8 => 7,
-		_ => 8
-	};
+        < 1e1 => 0,
+        < 1e2 => 1,
+        < 1e3 => 2,
+        < 1e4 => 3,
+        < 1e5 => 4,
+        < 1e6 => 5,
+        < 1e7 => 6,
+        < 1e8 => 7,
+        _ => 8
+    };
 }
 
 public static int MathILog(double value)
@@ -1254,7 +1254,7 @@ The benchmark we will run is this:
 public class ILog10Benchmarks
 {
     [Params(
-	    // lots of values
+        // lots of values
     )]
     public double Value { get; set; }
 
@@ -1739,28 +1739,28 @@ For all exponents of -8 <= e <= 8, `ILog` is faster than using `Math.Log`, with 
 ```csharp
 public static int ILog(double value)
 {
-	const double fastThreshold = 1e9;
-	return value is 0 ? int.MinValue
-		: value >= fastThreshold ? MathILog(value)
-		: value < 1e-8 ? MathILog(value)
-		: value < 1e-7 ? -8
-		: value < 1e-6 ? -7
-		: value < 1e-5 ? -6
-		: value < 1e-4 ? -5
-		: value < 1e-3 ? -4
-		: value < 1e-2 ? -3
-		: value < 1e-1 ? -2
-		: value < 1e0 ? -1
-		: value < 1e1 ? 0
-		: value < 1e2 ? 1
-		: value < 1e3 ? 2
-		: value < 1e4 ? 3
-		: value < 1e5 ? 4
-		: value < 1e6 ? 5
-		: value < 1e7 ? 6
-		: value < 1e8 ? 7
-		: 8
-		;
+    const double fastThreshold = 1e9;
+    return value is 0 ? int.MinValue
+        : value >= fastThreshold ? MathILog(value)
+        : value < 1e-8 ? MathILog(value)
+        : value < 1e-7 ? -8
+        : value < 1e-6 ? -7
+        : value < 1e-5 ? -6
+        : value < 1e-4 ? -5
+        : value < 1e-3 ? -4
+        : value < 1e-2 ? -3
+        : value < 1e-1 ? -2
+        : value < 1e0 ? -1
+        : value < 1e1 ? 0
+        : value < 1e2 ? 1
+        : value < 1e3 ? 2
+        : value < 1e4 ? 3
+        : value < 1e5 ? 4
+        : value < 1e6 ? 5
+        : value < 1e7 ? 6
+        : value < 1e8 ? 7
+        : 8
+        ;
 }
 ```
 
@@ -1769,30 +1769,30 @@ Just a single comparison against 1 at the start can help speed things up drastic
 ```csharp
 public static int ILogSplit(double value)
 {
-	const double fastThreshold = 1e9;
-	return value is 0 ? int.MinValue
-		: value < 1
-			? (value >= fastThreshold ? MathILog(value)
-				: value < 1e1 ? 0
-				: value < 1e2 ? 1
-				: value < 1e3 ? 2
-				: value < 1e4 ? 3
-				: value < 1e5 ? 4
-				: value < 1e6 ? 5
-				: value < 1e7 ? 6
-				: value < 1e8 ? 7
-				: 8)
+    const double fastThreshold = 1e9;
+    return value is 0 ? int.MinValue
+        : value < 1
+            ? (value >= fastThreshold ? MathILog(value)
+                : value < 1e1 ? 0
+                : value < 1e2 ? 1
+                : value < 1e3 ? 2
+                : value < 1e4 ? 3
+                : value < 1e5 ? 4
+                : value < 1e6 ? 5
+                : value < 1e7 ? 6
+                : value < 1e8 ? 7
+                : 8)
 
-			: (value < 1e-8 ? MathILog(value)
-				: value < 1e-7 ? -8
-				: value < 1e-6 ? -7
-				: value < 1e-5 ? -6
-				: value < 1e-4 ? -5
-				: value < 1e-3 ? -4
-				: value < 1e-2 ? -3
-				: value < 1e-1 ? -2
-				: -1)
-		;
+            : (value < 1e-8 ? MathILog(value)
+                : value < 1e-7 ? -8
+                : value < 1e-6 ? -7
+                : value < 1e-5 ? -6
+                : value < 1e-4 ? -5
+                : value < 1e-3 ? -4
+                : value < 1e-2 ? -3
+                : value < 1e-1 ? -2
+                : -1)
+        ;
 }
 ```
 
