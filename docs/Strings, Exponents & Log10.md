@@ -135,6 +135,7 @@ It would make sense if we assumed the solution using `ToString` would be the slo
 | DigitCount         | 255   | 0.0000 ns | 0.0000 ns | 0.0000 ns | 0.0000 ns | 0.000 |    0.00 |
 | DigitCountMath     | 255   | 5.6109 ns | 0.0504 ns | 0.0471 ns | 5.6214 ns | 1.000 |    0.01 |
 | DigitCountToString | 255   | 0.8777 ns | 0.0117 ns | 0.0098 ns | 0.8802 ns | 0.156 |    0.00 |
+
 Our `DigitCount` is almost indistinguishable from a method invocation (literally what Benchmark.NET says):
 > `ByteDigitCountBenchmarks.DigitCount: IterationTime=150ms -> The method duration is indistinguishable from the empty method duration`
 
@@ -245,6 +246,7 @@ public static int DigitCount(ushort value)
 | DigitCount         | 65535 | 0.2070 ns | 0.0076 ns | 0.0060 ns |  0.04 |    0.00 |
 | DigitCountMath     | 65535 | 5.6082 ns | 0.0382 ns | 0.0339 ns |  1.00 |    0.01 |
 | DigitCountToString | 65535 | 5.2610 ns | 0.1249 ns | 0.1169 ns |  0.94 |    0.02 |
+
 > For some reason the execution of `DigitCountMath` with `Value = 9` failed miserably. Here are the logs
 ```
 > Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
@@ -529,6 +531,7 @@ To compare apples to apples, we will now move towards the 32-bit integers.
 | DigitCount     | 2147483647 |  0.2055 ns | 0.0102 ns | 0.0090 ns |  0.2047 ns | 0.038 |    0.00 |
 | DigitCountMath | 2147483647 |  5.4119 ns | 0.0372 ns | 0.0291 ns |  5.4066 ns | 1.000 |    0.01 |
 | DigitCountStl  | 2147483647 |  0.0087 ns | 0.0100 ns | 0.0089 ns |  0.0082 ns | 0.002 |    0.00 |
+
 Somewhat surprisingly and somewhat unsurprisingly, our solution is much worse than the STL version. And it passes all tests when comparing against any solution, slower or not. The key is that `uint.Log2`  uses `BitOperations.Log2` which is a simple leading zero count (`LZCNT`) calculation and a subtraction from the bit count of the data type. Specifically also supported on various architectures as seen [in the source](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Private.CoreLib/src/System/Numerics/BitOperations.cs#L277):
 ```csharp
 [Intrinsic]
@@ -718,6 +721,7 @@ private static uint UIntBool(bool x)
 | DigitCount           | 2147483647 | 0.2061 ns | 0.0074 ns | 0.0069 ns | 0.2094 ns |      ? |       ? |
 | DigitCountStl        | 2147483647 | 0.0026 ns | 0.0027 ns | 0.0026 ns | 0.0020 ns |      ? |       ? |
 | DigitCountCompareAll | 2147483647 | 4.3282 ns | 0.0342 ns | 0.0320 ns | 4.3364 ns |      ? |       ? |
+
 The compare all solution is always too much slower than the STL one. However this may be attributed to having used `&&`, which conditionally avoids executing the right hand side of the operand if the left one is `false`. Replacing this shorthand with the bitwise operator `&` we have this code:
 ```csharp
 public static int DigitCountCompareAllBitwise(uint value)
@@ -1113,6 +1117,7 @@ The results came back:
 |               |                      |           |           |           |       |         |
 | DigitCount    | 999999999999999999   | 1.4165 ns | 0.0174 ns | 0.0162 ns |  6.06 |    0.36 |
 | DigitCountStl | 999999999999999999   | 0.2344 ns | 0.0150 ns | 0.0140 ns |  1.00 |    0.08 |
+
 It's undeniable that the STL knows what it's doing. Once again the custom implementation ate dirt and it's clear that we should step out of the way of integers. With execution times as short as ~0.23 ns (basically in-cycle execution), the STL solution is the best (so far) software solution to use. Therefore the only problem is that we do not have access to this method without browsing the source directly. This is a very low-cost and 100% correct set of methods to calculate the digit count of a number.
 
 And we have not even tested against branch mispredictions yet. This is assuming the happy path is always followed after every execution; the CPU will keep expecting the same execution path until the `Value` changes, where its prediction will fail, maybe a few times until it decides on another execution path to predict for the rest of the benchmark on the same `Value`.
@@ -1173,6 +1178,7 @@ That summation is not an unlikely scenario though; if we wanted to concatenate a
 |-------------- |---------:|--------:|--------:|------:|--------:|
 | DigitCount    | 165.4 ns | 1.63 ns | 1.52 ns |  1.65 |    0.02 |
 | DigitCountStl | 100.4 ns | 0.98 ns | 0.86 ns |  1.00 |    0.01 |
+
 The result here shows that our implementation is 65% worse than the STL one. Based on the previous benchmarks with the fixed `Value` parameter, we had an average of ~180% worse performance than the STL solution. This improved performance ratio is thanks to the aforementioned overhead of adding and looping, where we have eliminated the isolation of each function's execution.
 
 It is though evident that even in a simple simulation of pre-calculating the buffer length of the concatenation of multiple numbers such as the ones above, the STL solution is much better than this homebrewed digit count solution.
@@ -1422,6 +1428,7 @@ For comparison fairness, we also include a benchmark testing `Math.Log10` alone 
 | CustomILogSwitch  | 9999999999 | 5.2886 ns | 0.0384 ns | 0.0359 ns |  1.60 |    0.02 |
 | MathILog          | 9999999999 | 5.6105 ns | 0.0894 ns | 0.0836 ns |  1.70 |    0.03 |
 | MathLog10Baseline | 9999999999 | 3.3035 ns | 0.0253 ns | 0.0236 ns |  1.00 |    0.01 |
+
 From these results it is evident that the ternary hell and the switch expression are almost identical in performance, if the difference of 0.05 ns can even count as a difference in the cases that it appears. And `Math.Log10` is always slower whenever invoked. The good thing about this hybrid approach is that it also calls the `MathILog` implementation as early as possible after 0, so the overhead of the comparison is tiny, as seen in the comparative results.
 
 The above implementation and benchmark used f64 values, since `Math.Log10` accepts a f64 and we want to avoid an unnecessary extension of f32 to f64. There is also `MathF.Log10`, the f32 version of the base-10 logarithm provided by the STL. Copy-pasting the above code for floats with the appropriate modifications yields these benchmark results:
@@ -1565,6 +1572,7 @@ The above implementation and benchmark used f64 values, since `Math.Log10` accep
 | CustomILogSwitch  | 1E+10     | 4.8355 ns | 0.0443 ns | 0.0415 ns |  1.89 |    0.04 |
 | MathILog          | 1E+10     | 4.3857 ns | 0.0562 ns | 0.0526 ns |  1.71 |    0.04 |
 | MathLog10Baseline | 1E+10     | 2.5642 ns | 0.0592 ns | 0.0524 ns |  1.00 |    0.03 |
+
 Some values appear twice because the 9.9999...eN literals are rounded up to 1e(N+1) due to f32's lower precision around that exponent. Despite that, we can see that the custom ILog10 implementation still holds good performance, only a little worse than MathF.Log10 with conversion to int.
 
 Now, after implementing support for numbers 0 < x < 1, and comparing against a non-clamped result of `Math.Log10`, the results look like this:
@@ -1726,6 +1734,7 @@ Now, after implementing support for numbers 0 < x < 1, and comparing against a n
 | MathNonNegativeILog | 9999999999 | 5.0179 ns | 0.0492 ns | 0.0436 ns |  1.54 |    0.01 |
 | MathILog            | 9999999999 | 4.7398 ns | 0.0180 ns | 0.0160 ns |  1.45 |    0.01 |
 | MathLog10Baseline   | 9999999999 | 3.2639 ns | 0.0168 ns | 0.0148 ns |  1.00 |    0.01 |
+
 For all exponents of -8 <= e <= 8, `ILog` is faster than using `Math.Log`, with varying success at that. For the above benchmark, this order was used:
 ```csharp
 public static int ILog(double value)
