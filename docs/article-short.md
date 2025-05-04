@@ -45,7 +45,11 @@ But this solution doesn't make me sleep at nights. I'm a software developer, I d
 
 ## Software Rescue
 
-We need to develop a base-10 digit count function for all of the 6 data types described above: 32/64-bit floats, 8/16/32/64-bit unsigned integers. We will start with the integers since they are the most basic ones. First let's analyze the limits of the data types:
+We need to develop a base-10 digit count function for all of the 6 data types described above: 32/64-bit floats, 8/16/32/64-bit unsigned integers. We will start with the integers since they are the most basic ones.
+
+### Integers
+
+First let's analyze the limits of the data types:
 - 8-bit ranges in `[0, 255]`, so it's got 1-3 decimal digits.
 - 16-bit ranges in `[0, 65,535]`, so 1-5 digits.
 - 32-bit ranges in `[0, 4,294,967,296]`, making it 1-10 digits.
@@ -404,7 +408,51 @@ The result here shows that our implementation is 65% worse than the STL one. Bas
 
 It is though evident that even in a simple simulation of pre-calculating the buffer length of the concatenation of multiple numbers such as the ones above, the STL solution is much better than this homebrewed digit count solution.
 
+**EDIT 2025-05-04**: While the intent was to write a benchmark that forces serial execution of the method, the benchmark above failed at that. While the result of the sum variable depended on previous executions, the executions' results didn't. So it was probably easily speculatively executable for the CPU. All we need to change is adding the `sum` value to the value whose digits are being counted:
+
+```csharp
+private static ulong DigitCountSumInterdependent(Func<ulong, int> digitCounter)
+{
+    ulong sum = 0;
+
+    for (int i = 0; i < 4; i++)
+    {
+        sum += (uint)digitCounter(sum + 1);
+        sum += (uint)digitCounter(sum + 2);
+        sum += (uint)digitCounter(sum + 100321);
+        sum += (uint)digitCounter(sum + 38);
+        sum += (uint)digitCounter(sum + 13290);
+        sum += (uint)digitCounter(sum + 3128791238719);
+        sum += (uint)digitCounter(sum + ulong.MaxValue);
+        sum += (uint)digitCounter(sum + 9401);
+        sum += (uint)digitCounter(sum + 100000000);
+        sum += (uint)digitCounter(sum + 10341245214532535663);
+        sum += (uint)digitCounter(sum + 132904351211);
+        sum += (uint)digitCounter(sum + 5429138726719879);
+        sum += (uint)digitCounter(sum + 103);
+        sum += (uint)digitCounter(sum + 5429138726719812379);
+        sum += (uint)digitCounter(sum + 0);
+        sum += (uint)digitCounter(sum + ulong.MaxValue);
+    }
+
+    return sum;
+}
+```
+
+And voilà:
+
+| Method                       | Mean      | Error    | StdDev   | Ratio | RatioSD |
+|----------------------------- |----------:|---------:|---------:|------:|--------:|
+| DigitCountStl                |  99.83 ns | 0.778 ns | 0.727 ns |  1.00 |    0.01 |
+| DigitCount                   | 162.34 ns | 0.813 ns | 0.720 ns |  1.63 |    0.01 |
+| DigitCountStl_Interdependent | 231.81 ns | 0.816 ns | 0.763 ns |  2.32 |    0.02 |
+| DigitCount_Interdependent    | 156.65 ns | 0.752 ns | 0.704 ns |  1.57 |    0.01 |
+
+Truly interdependent execution of the STL implementation is much slower than even our homebrew digit count. Ironically, our solution is consistently slightly faster when adding the `sum` value to the number, which is probably because we're moving upwards in the if-statement chain by passing in larger values. This is only specific to this benchmark, and since this difference in measure can be explained, it does not prove anything about the method execution time being affected by making the input dependable on the previous execution.
+
 And that concludes the story for integers. Let's move on to floating-point numbers.
+
+### Floating-point
 
 One good reason why this research even began is because I need to represent floating-point numbers supporting massive exponents, rolling a custom scientific notation data type. This type will use a 64-bit floating-point for the mantissa and a 64-bit integer for the exponent. While not the most efficient memory-wise, it supports "a good chunk" of the number range I need to cover[^1].
 

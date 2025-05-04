@@ -5,4 +5,4 @@ using Logarithms.Benchmarks;
 #error WHAT'YOU GONNA RUN MY BOI?
 #endif
 
-BenchmarkRunner.Run<FullILog10SearchOrderBenchmarks>();
+BenchmarkRunner.Run<UInt64RandomDigitCountBenchmarks>();
