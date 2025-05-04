@@ -1,4 +1,8 @@
-By Alex "Rekkon", at 2025/05/03
+# Strings, Exponents & Log10
+
+[Shorter version](https://github.com/Rekkonnect/Log10Article/blob/master/docs/article-short.md)
+
+By Alex "Rekkon", on 2025-05-03
 
 ## Disclaimer
 

@@ -1,4 +1,8 @@
-By Alex "Rekkon", at 2025/05/03
+# Strings, Exponents & Log10 (Short ver.)
+
+[Longer version](https://github.com/Rekkonnect/Log10Article/blob/master/docs/article.md)
+
+By Alex "Rekkon", on 2025-05-03
 
 ## Disclaimer
 
@@ -20,7 +24,7 @@ The iteration time is usually set to 150ms to shorten the time the benchmarks ta
 
 This article contains images with benchmark results, which were generated using https://chartbenchmark.net/, including extensive tables with the raw results, initially collapsed. The graphs only display the mean execution time due to the tool's customization limitations. Notice that the y axis is in log2 scale.
 
-This file is a shorter version of the [original article](https://github.com/Rekkonnect/Log10Article/blob/master/docs/Strings,%20Exponents%20&%20Log10.md), which does not include the extensive benchmark tables and removes some linked code snippets. Consult either the original untrimmed article or the linked snippets and the [repository](https://github.com/Rekkonnect/Log10Article/) for further information.
+This file is a shorter version of the [original article](https://github.com/Rekkonnect/Log10Article/blob/master/docs/article.md), which does not include the extensive benchmark tables and removes some linked code snippets. Consult either the original untrimmed article or the linked snippets and the [repository](https://github.com/Rekkonnect/Log10Article/) for further information.
 
 ## Debrief
 
@@ -200,54 +204,12 @@ To compare apples to apples, we will now move towards the 32-bit integers.
 
 ![Benchmark Results Image 3](benchmarks/3.png)
 
-Somewhat surprisingly and somewhat unsurprisingly, our solution is much worse than the STL version. And it passes all tests when comparing against any solution, slower or not. The key is that `uint.Log2`  uses `BitOperations.Log2` which is a simple leading zero count (`LZCNT`) calculation and a subtraction from the bit count of the data type. Specifically also supported on various architectures as seen [in the source](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Private.CoreLib/src/System/Numerics/BitOperations.cs#L277):
-```csharp
-[Intrinsic]
-[MethodImpl(MethodImplOptions.AggressiveInlining)]
-[CLSCompliant(false)]
-public static int Log2(uint value)
-{
-    // The 0->0 contract is fulfilled by setting the LSB to 1.
-    // Log(1) is 0, and setting the LSB for values > 1 does not change the log2 result.
-    value |= 1;
+Somewhat surprisingly and somewhat unsurprisingly, our solution is much worse than the STL version. And it passes all tests when comparing against any solution, slower or not. The key is that `uint.Log2`  uses `BitOperations.Log2` which is a simple leading zero count (`LZCNT`) calculation and a subtraction from the bit count of the data type. Specifically also supported on various architectures as seen [in the source](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Private.CoreLib/src/System/Numerics/BitOperations.cs#L277).
 
-    // value    lzcnt   actual  expected
-    // ..0001   31      31-31    0
-    // ..0010   30      31-30    1
-    // 0010..    2      31-2    29
-    // 0100..    1      31-1    30
-    // 1000..    0      31-0    31
-    if (Lzcnt.IsSupported)
-    {
-        return 31 ^ (int)Lzcnt.LeadingZeroCount(value);
-    }
+Like I said before,
+> One important note is that the .NET runtime has incorporated tons of optimizations having undergone strenuous benchmarking effort throughout the over two decades that it has been alive. So usually it should not come as a surprise that common methods \[...\] would be blazingly fast and any homebrew solution would appear terrible compared against it.
 
-    if (ArmBase.IsSupported)
-    {
-        return 31 ^ ArmBase.LeadingZeroCount(value);
-    }
-
-    if (WasmBase.IsSupported)
-    {
-        return 31 ^ WasmBase.LeadingZeroCount(value);
-    }
-
-    // BSR returns the log2 result directly. However BSR is slower than LZCNT
-    // on AMD processors, so we leave it as a fallback only.
-    if (X86Base.IsSupported)
-    {
-        return (int)X86Base.BitScanReverse(value);
-    }
-
-    // Fallback contract is 0->0
-    return Log2SoftwareFallback(value);
-}
-```
- 
- Like I said before,
- > One important note is that the .NET runtime has incorporated tons of optimizations having undergone strenuous benchmarking effort throughout the over two decades that it has been alive. So usually it should not come as a surprise that common methods \[...\] would be blazingly fast and any homebrew solution would appear terrible compared against it.
- 
- I didn't even test the branch misprediction theory, but it should be self-evident that it plays a role. This could be partly mitigated by using a binary search structure in the code, but even then we still leave room for branch mispredictions, and we perform many comparisons, which means more instructions compared to the very simple `OR`, `XOR` and `LZCNT` solution of `Log2` and the lookup table that contains magic numbers to guarantee correctness for every single value.
+I didn't even test the branch misprediction theory, but it should be self-evident that it plays a role. This could be partly mitigated by using a binary search structure in the code, but even then we still leave room for branch mispredictions, and we perform many comparisons, which means more instructions compared to the very simple `OR`, `XOR` and `LZCNT` solution of `Log2` and the lookup table that contains magic numbers to guarantee correctness for every single value.
 
 There is one trick however we can apply to eliminate branch mispredictions. Instead of selectively performing the comparisons, we just perform them all. Only one will be true at a time, so we can OR the result of each comparison individually, something that modern CPUs will happily parallelize despite the long instruction list.
 
